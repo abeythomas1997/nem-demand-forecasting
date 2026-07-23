@@ -69,6 +69,9 @@ def parse_aemo_file(file_path: Path) -> pd.DataFrame:
             if record_type == "I":
                 header_row = row.copy()
                 header_row[0] = "RECORD_TYPE"
+                header_row[1] = "DATASET"
+                header_row[2] = "DATA_TYPE"
+                header_row[3] = "VERSION"
 
             elif record_type == "D":
                 data_rows.append(row)
