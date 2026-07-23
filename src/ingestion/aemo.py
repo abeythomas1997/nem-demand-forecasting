@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import csv
+from io import StringIO
 from pathlib import Path
+from typing import Iterable
 
 import pandas as pd
 
@@ -14,76 +16,55 @@ DEFAULT_RAW_DIRECTORY = (
     / "raw"
     / "aemo"
     / "operational_demand"
+    / "sample"
 )
 
 
-def parse_aemo_file(file_path: Path) -> pd.DataFrame:
+def _parse_aemo_rows(
+    rows: Iterable[list[str]],
+    source_file: str,
+) -> pd.DataFrame:
     """
-    Parse one AEMO CSV file.
-        C rows: control/report metadata
-        I rows: column headers
-        D rows: actual data records
+    Parse AEMO CSV rows containing C, I and D record types.
 
-    This function uses the I row as the column names and returns
-    only the D rows.
-
-    Parameters
-    ----------
-    file_path:
-        Path to an AEMO CSV file.
-
-    Returns
-    -------
-    pd.DataFrame
-        Parsed AEMO data rows.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the file does not exist.
-
-    ValueError
-        If an I header row or D data rows cannot be found.
+    C rows contain report metadata.
+    I rows contain column headers.
+    D rows contain data records.
     """
-    file_path = Path(file_path)
-
-    if not file_path.exists():
-        raise FileNotFoundError(f"AEMO file not found: {file_path}")
 
     header_row: list[str] | None = None
     data_rows: list[list[str]] = []
 
-    with file_path.open(
-        mode="r",
-        encoding="utf-8-sig",
-        newline="",
-    ) as csv_file:
-        reader = csv.reader(csv_file)
+    for row in rows:
+        if not row:
+            continue
 
-        for row in reader:
-            if not row:
-                continue
+        record_type = row[0].strip()
 
-            record_type = row[0].strip()
+        if record_type == "I":
+            header_row = row.copy()
 
-            if record_type == "I":
-                header_row = row.copy()
-                header_row[0] = "RECORD_TYPE"
-                header_row[1] = "DATASET"
-                header_row[2] = "DATA_TYPE"
-                header_row[3] = "VERSION"
+            if len(header_row) < 4:
+                raise ValueError(
+                    f"Invalid AEMO header row in: {source_file}"
+                )
 
-            elif record_type == "D":
-                data_rows.append(row)
+            header_row[0] = "RECORD_TYPE"
+            header_row[1] = "DATASET"
+            header_row[2] = "DATA_TYPE"
+            header_row[3] = "VERSION"
+
+        elif record_type == "D":
+            data_rows.append(row)
 
     if header_row is None:
         raise ValueError(
-            f"No AEMO item/header row ('I') found in: {file_path.name}"
+            f"No AEMO item/header row ('I') found in: {source_file}"
         )
 
     if not data_rows:
         raise ValueError(
-            f"No AEMO data rows ('D') found in: {file_path.name}"
+            f"No AEMO data rows ('D') found in: {source_file}"
         )
 
     expected_columns = len(header_row)
@@ -96,7 +77,7 @@ def parse_aemo_file(file_path: Path) -> pd.DataFrame:
 
     if invalid_rows:
         raise ValueError(
-            f"{file_path.name} contains {len(invalid_rows)} data rows "
+            f"{source_file} contains {len(invalid_rows)} data rows "
             f"whose column count does not match the header."
         )
 
@@ -105,32 +86,68 @@ def parse_aemo_file(file_path: Path) -> pd.DataFrame:
         columns=header_row,
     )
 
-    dataframe["SOURCE_FILE"] = file_path.name
+    dataframe["SOURCE_FILE"] = source_file
 
     return dataframe
 
 
-def load_aemo_directory(
-    directory: Path = DEFAULT_RAW_DIRECTORY,
+def parse_aemo_file(file_path: str | Path) -> pd.DataFrame:
+    """
+    Parse one AEMO CSV file stored on disk.
+    """
+
+    file_path = Path(file_path)
+
+    if not file_path.exists():
+        raise FileNotFoundError(
+            f"AEMO file not found: {file_path}"
+        )
+
+    with file_path.open(
+        mode="r",
+        encoding="utf-8-sig",
+        newline="",
+    ) as csv_file:
+        reader = csv.reader(csv_file)
+
+        return _parse_aemo_rows(
+            rows=reader,
+            source_file=file_path.name,
+        )
+
+
+def parse_aemo_bytes(
+    csv_bytes: bytes,
+    source_file: str,
 ) -> pd.DataFrame:
     """
-    Parse and concatenate all AEMO CSV files in a directory.
+    Parse an AEMO CSV held in memory as bytes.
 
-    Parameters
-    ----------
-    directory:
-        Directory containing raw AEMO CSV files.
-
-    Returns
-    -------
-    pd.DataFrame
-        Combined data from every CSV file.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the directory does not exist or contains no CSV files.
+    This is used when CSV files are read directly from ZIP archives.
     """
+
+    csv_text = csv_bytes.decode(
+        "utf-8-sig",
+        errors="replace",
+    )
+
+    reader = csv.reader(
+        StringIO(csv_text)
+    )
+
+    return _parse_aemo_rows(
+        rows=reader,
+        source_file=source_file,
+    )
+
+
+def load_aemo_directory(
+    directory: str | Path = DEFAULT_RAW_DIRECTORY,
+) -> pd.DataFrame:
+    """
+    Parse and concatenate all standalone AEMO CSV files in a directory.
+    """
+
     directory = Path(directory)
 
     if not directory.exists():
@@ -138,21 +155,22 @@ def load_aemo_directory(
             f"AEMO raw-data directory not found: {directory}"
         )
 
-    csv_files = sorted(directory.glob("*.csv"))
-
-    if not csv_files:
-        csv_files = sorted(directory.glob("*.CSV"))
+    csv_files = sorted(
+        path
+        for path in directory.iterdir()
+        if path.is_file()
+        and path.suffix.lower() == ".csv"
+    )
 
     if not csv_files:
         raise FileNotFoundError(
             f"No CSV files found in: {directory}"
         )
 
-    parsed_dataframes: list[pd.DataFrame] = []
-
-    for csv_file in csv_files:
-        dataframe = parse_aemo_file(csv_file)
-        parsed_dataframes.append(dataframe)
+    parsed_dataframes = [
+        parse_aemo_file(csv_file)
+        for csv_file in csv_files
+    ]
 
     return pd.concat(
         parsed_dataframes,
@@ -161,10 +179,14 @@ def load_aemo_directory(
 
 
 def main() -> None:
-    """Run a basic inspection of the raw AEMO files."""
+    """Run a basic inspection of standalone raw AEMO CSV files."""
+
     dataframe = load_aemo_directory()
 
-    print(f"Files parsed: {dataframe['SOURCE_FILE'].nunique()}")
+    print(
+        f"Files parsed: "
+        f"{dataframe['SOURCE_FILE'].nunique()}"
+    )
     print(f"Rows parsed: {len(dataframe):,}")
     print(f"Columns: {len(dataframe.columns)}")
 
@@ -174,8 +196,7 @@ def main() -> None:
     print("\nFirst five rows:")
     print(dataframe.head())
 
+
 if __name__ == "__main__":
-   main()
-
-
-
+    main()
+    
