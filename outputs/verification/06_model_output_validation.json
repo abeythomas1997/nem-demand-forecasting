@@ -1,0 +1,17 @@
+{
+    "stage": "model_outputs",
+    "status": "PASS",
+    "selected_model": "tuned_xgboost",
+    "selected_model_present_in_comparison": true,
+    "comparison_row_count": 8,
+    "missing_comparison_columns": [],
+    "test_prediction_row_count": 2579,
+    "test_prediction_missing_value_count": 0,
+    "non_finite_prediction_counts": {},
+    "finite_test_metrics": {
+        "MAE": true,
+        "RMSE": true,
+        "MAPE": true,
+        "R2": true
+    }
+}

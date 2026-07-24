@@ -1,0 +1,39 @@
+{
+    "stage": "demand_weather_merge",
+    "status": "PASS",
+    "demand_rows_before_merge": 17520,
+    "weather_rows_before_merge": 17567,
+    "merged_rows": 17520,
+    "row_difference_vs_demand": 0,
+    "unique_demand_timestamps": 17520,
+    "unique_weather_timestamps": 17567,
+    "matched_timestamp_count": 17520,
+    "unmatched_demand_timestamp_count": 0,
+    "extra_weather_timestamp_count": 47,
+    "match_rate": 1.0,
+    "minimum_required_match_rate": 0.99,
+    "duplicate_merged_timestamp_count": 0,
+    "invalid_merged_timestamp_count": 0,
+    "weather_columns_expected": [
+        "temperature",
+        "relative_humidity",
+        "apparent_temperature",
+        "cloud_cover",
+        "wind_speed",
+        "solar_radiation",
+        "precipitation",
+        "is_raining"
+    ],
+    "weather_columns_present_after_merge": [
+        "temperature",
+        "relative_humidity",
+        "apparent_temperature",
+        "cloud_cover",
+        "wind_speed",
+        "solar_radiation",
+        "precipitation",
+        "is_raining"
+    ],
+    "missing_weather_value_count_after_merge": 0,
+    "missing_weather_values_by_column_after_merge": {}
+}

@@ -1,0 +1,21 @@
+{
+    "rows": 17520,
+    "start_datetime": "2025-06-01T04:30:00",
+    "end_datetime": "2026-06-01T04:00:00",
+    "duplicate_intervals": 0,
+    "missing_interval_count": 0,
+    "missing_intervals": [],
+    "missing_values": {
+        "RECORD_TYPE": 0,
+        "DATASET": 0,
+        "DATA_TYPE": 0,
+        "VERSION": 0,
+        "REGIONID": 0,
+        "INTERVAL_DATETIME": 0,
+        "OPERATIONAL_DEMAND": 0,
+        "OPERATIONAL_DEMAND_ADJUSTMENT": 0,
+        "WDR_ESTIMATE": 0,
+        "LASTCHANGED": 0,
+        "SOURCE_FILE": 0
+    }
+}

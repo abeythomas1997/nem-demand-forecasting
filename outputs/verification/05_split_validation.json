@@ -1,0 +1,29 @@
+{
+    "stage": "chronological_split",
+    "status": "PASS",
+    "full_row_count": 17184,
+    "train_row_count": 12028,
+    "validation_row_count": 2577,
+    "test_row_count": 2579,
+    "split_row_total": 17184,
+    "row_total_matches_full_dataset": true,
+    "feature_count": 34,
+    "missing_feature_columns": [],
+    "target_excluded_from_features": true,
+    "timestamp_excluded_from_features": true,
+    "timestamp_overlap_counts": {
+        "train_validation": 0,
+        "train_test": 0,
+        "validation_test": 0
+    },
+    "train_before_validation": true,
+    "validation_before_test": true,
+    "boundaries": {
+        "train_start": "2025-06-08T04:30:00",
+        "train_end": "2026-02-13T18:00:00",
+        "validation_start": "2026-02-13T18:30:00",
+        "validation_end": "2026-04-08T10:30:00",
+        "test_start": "2026-04-08T11:00:00",
+        "test_end": "2026-06-01T04:00:00"
+    }
+}

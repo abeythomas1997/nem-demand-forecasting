@@ -1,0 +1,23 @@
+{
+    "stage": "weather",
+    "status": "PASS",
+    "row_count": 17567,
+    "column_count": 22,
+    "weather_feature_count": 21,
+    "timestamp": {
+        "invalid_timestamp_count": 0,
+        "duplicate_timestamp_count": 0,
+        "is_monotonic_increasing": true,
+        "minimum_timestamp": "2025-06-01T00:00:00",
+        "maximum_timestamp": "2026-06-01T23:00:00",
+        "most_common_intervals": {
+            "0 days 00:30:00": 17566
+        }
+    },
+    "missing_value_count": 8,
+    "missing_values_by_column": {
+        "temperature_change_1h": 2,
+        "temperature_change_3h": 6
+    },
+    "infinite_values_by_column": {}
+}

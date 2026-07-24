@@ -1,0 +1,77 @@
+{
+    "status": "PASS",
+    "dataset_rows": 17184,
+    "feature_count": 34,
+    "split_rows": {
+        "train": 12028,
+        "validation": 2577,
+        "test": 2579
+    },
+    "selected_model": "tuned_xgboost",
+    "best_tuning_cv_mae": 96.68741416931152,
+    "validation_models": [
+        {
+            "model": "tuned_xgboost",
+            "MAE": 56.507911738379775,
+            "RMSE": 82.04632902280716,
+            "MAPE": 1.196837694754004,
+            "R2": 0.9917978287183455
+        },
+        {
+            "model": "default_xgboost",
+            "MAE": 60.45897196428138,
+            "RMSE": 86.83601153370022,
+            "MAPE": 1.2847369118844814,
+            "R2": 0.9908122269101898
+        },
+        {
+            "model": "random_forest",
+            "MAE": 61.002307244792654,
+            "RMSE": 87.96322934316575,
+            "MAPE": 1.2865987829606353,
+            "R2": 0.9905721458448251
+        },
+        {
+            "model": "linear_regression",
+            "MAE": 70.98498197390643,
+            "RMSE": 94.0740886904126,
+            "MAPE": 1.494795862637952,
+            "R2": 0.9892167278668632
+        },
+        {
+            "model": "ridge_regression",
+            "MAE": 71.34800768765119,
+            "RMSE": 94.29696095058567,
+            "MAPE": 1.5023323191075162,
+            "R2": 0.9891655737371181
+        },
+        {
+            "model": "previous_interval",
+            "MAE": 154.23903764066745,
+            "RMSE": 191.2259003764314,
+            "MAPE": 3.267049716309315,
+            "R2": 0.9554442298903283
+        },
+        {
+            "model": "previous_day",
+            "MAE": 487.52270081490104,
+            "RMSE": 750.1491027574915,
+            "MAPE": 10.713121039944824,
+            "R2": 0.31434489496542783
+        },
+        {
+            "model": "previous_week",
+            "MAE": 539.453240201785,
+            "RMSE": 848.6444926887209,
+            "MAPE": 12.014082193796396,
+            "R2": 0.12246970212074948
+        }
+    ],
+    "final_test_metrics": {
+        "MAE": 61.039210366481676,
+        "RMSE": 86.84587688385038,
+        "MAPE": 1.1731850823976866,
+        "R2": 0.9896592160472809
+    },
+    "verification_directory": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\verification"
+}
