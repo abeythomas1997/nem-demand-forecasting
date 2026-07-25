@@ -6,4 +6,4 @@ xgboost
 joblib
 pytest
 scipy
-pyyamlgit 
+PyYAML
