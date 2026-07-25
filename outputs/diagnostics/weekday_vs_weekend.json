@@ -1,0 +1,25 @@
+{
+    "stage": "weekday_vs_weekend_error_analysis",
+    "status": "PASS",
+    "total_row_count": 2579,
+    "weekday": {
+        "count": 1811,
+        "mae": 59.73955533782268,
+        "median_absolute_error": 41.02685546875,
+        "rmse": 85.5660787415286,
+        "mape": 1.11968026532259,
+        "mean_residual": 23.738316704988613,
+        "underprediction_percentage": 61.12644947542793,
+        "overprediction_percentage": 38.87355052457206
+    },
+    "weekend": {
+        "count": 768,
+        "mae": 54.81743780771891,
+        "median_absolute_error": 37.40625,
+        "rmse": 79.48325493684362,
+        "mape": 1.1393003407768523,
+        "mean_residual": 17.68632475535075,
+        "underprediction_percentage": 60.026041666666664,
+        "overprediction_percentage": 39.97395833333333
+    }
+}

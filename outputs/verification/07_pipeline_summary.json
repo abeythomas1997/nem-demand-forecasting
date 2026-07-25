@@ -26,7 +26,7 @@
         },
         {
             "model": "random_forest",
-            "MAE": 61.002307244792654,
+            "MAE": 61.00230724479264,
             "RMSE": 87.96322934316575,
             "MAPE": 1.2865987829606353,
             "R2": 0.9905721458448251
@@ -68,10 +68,29 @@
         }
     ],
     "final_test_metrics": {
-        "MAE": 61.039210366481676,
-        "RMSE": 86.84587688385038,
-        "MAPE": 1.1731850823976866,
-        "R2": 0.9896592160472809
+        "MAE": 58.273798741033346,
+        "RMSE": 83.80085292495228,
+        "MAPE": 1.1255229244729865,
+        "R2": 0.990371648574455
     },
-    "verification_directory": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\verification"
+    "output_directories": {
+        "verification": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\verification",
+        "diagnostics": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\diagnostics",
+        "plots": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots",
+        "models": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\models"
+    },
+    "visualisation": {
+        "stage": "model_visualisation",
+        "status": "PASS",
+        "plot_count": 7,
+        "outputs": {
+            "actual_vs_prediction": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots\\actual_vs_prediction.png",
+            "actual_vs_prediction_scatter": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots\\actual_vs_prediction_scatter.png",
+            "residual_histogram": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots\\residual_histogram.png",
+            "residual_time_series": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots\\residual_time_series.png",
+            "hourly_error": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots\\hourly_error.png",
+            "day_of_week_error": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots\\day_of_week_error.png",
+            "month_error": "C:\\Users\\abeyt\\Downloads\\Energy Vic\\outputs\\plots\\month_error.png"
+        }
+    }
 }
