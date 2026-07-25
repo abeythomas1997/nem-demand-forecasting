@@ -1,7 +1,10 @@
+# main.py
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import joblib
 import pandas as pd
@@ -11,16 +14,34 @@ from src.diagnostics import (
     generate_model_diagnostics,
     generate_time_based_error_analysis,
 )
-from src.features.build_calendar_features import add_calendar_features
-from src.features.build_cyclical_features import add_cyclical_features
-from src.features.build_lag_features import add_lag_features
-from src.features.build_rolling_features import add_rolling_features
-from src.features.build_weather_features import build_weather_features
+from src.features.build_calendar_features import (
+    add_calendar_features,
+)
+from src.features.build_cyclical_features import (
+    add_cyclical_features,
+)
+from src.features.build_lag_features import (
+    add_lag_features,
+)
+from src.features.build_rolling_features import (
+    add_rolling_features,
+)
+from src.features.build_weather_features import (
+    build_weather_features,
+)
+from src.inference import (
+    generate_predictions,
+    save_predictions,
+)
 from src.ingestion.load_historical_operational_demand import (
     load_historical_operational_demand,
 )
-from src.ingestion.weather import load_historical_weather
-from src.modelling.baselines import generate_baseline_predictions
+from src.ingestion.weather import (
+    load_historical_weather,
+)
+from src.modelling.baselines import (
+    generate_baseline_predictions,
+)
 from src.modelling.linear_models import (
     train_linear_regression,
     train_ridge_regression,
@@ -29,22 +50,46 @@ from src.modelling.metrics import (
     calculate_regression_metrics,
     evaluate_prediction_dataframe,
 )
-from src.modelling.preprocessing import standard_scale_features
-from src.modelling.split_data import split_time_series_data
+from src.modelling.preprocessing import (
+    standard_scale_features,
+)
+from src.modelling.split_data import (
+    split_time_series_data,
+)
 from src.modelling.tree_models import (
     get_feature_importance,
     train_random_forest,
 )
-from src.modelling.tune_xgboost import tune_xgboost_regressor
-from src.modelling.xgboost_model import get_xgboost_feature_importance
+from src.modelling.tune_xgboost import (
+    tune_xgboost_regressor,
+)
+from src.modelling.xgboost_model import (
+    get_xgboost_feature_importance,
+)
+from src.monitoring import (
+    evaluate_and_save_retraining_decision,
+    run_monitoring,
+)
 from src.processing.clean_aemo import (
     clean_operational_demand,
     validate_operational_demand,
 )
-from src.processing.clean_weather import clean_weather_data
-from src.processing.merge_demand_weather import merge_demand_weather
-from src.processing.prepare_model_data import prepare_model_data
-from src.processing.prepare_training_data import prepare_training_data
+from src.processing.clean_weather import (
+    clean_weather_data,
+)
+from src.processing.merge_demand_weather import (
+    merge_demand_weather,
+)
+from src.processing.prepare_model_data import (
+    prepare_model_data,
+)
+from src.processing.prepare_training_data import (
+    prepare_training_data,
+)
+from src.tracking import (
+    create_model_manifest,
+    track_experiment,
+)
 from src.verification.validators import (
     PipelineValidationError,
     save_json_report,
@@ -55,7 +100,9 @@ from src.verification.validators import (
     validate_training_dataset,
     validate_weather_data,
 )
-from src.visualisation import generate_model_visualisations
+from src.visualisation import (
+    generate_model_visualisations,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -71,6 +118,26 @@ ARCHIVE_DIRECTORY = (
 
 OUTPUT_DIRECTORY = PROJECT_ROOT / "outputs"
 MODEL_DIRECTORY = PROJECT_ROOT / "models"
+
+METRICS_DIRECTORY = (
+    OUTPUT_DIRECTORY
+    / "metrics"
+)
+
+PREDICTIONS_DIRECTORY = (
+    OUTPUT_DIRECTORY
+    / "predictions"
+)
+
+TUNING_DIRECTORY = (
+    OUTPUT_DIRECTORY
+    / "tuning"
+)
+
+FEATURE_IMPORTANCE_DIRECTORY = (
+    OUTPUT_DIRECTORY
+    / "feature_importance"
+)
 
 VERIFICATION_DIRECTORY = (
     OUTPUT_DIRECTORY
@@ -92,6 +159,47 @@ PLOTS_DIRECTORY = (
     / "plots"
 )
 
+TRACKING_DIRECTORY = (
+    OUTPUT_DIRECTORY
+    / "tracking"
+)
+
+MONITORING_DIRECTORY = (
+    OUTPUT_DIRECTORY
+    / "monitoring"
+)
+
+MODEL_PATH = (
+    MODEL_DIRECTORY
+    / "final_xgboost_model.json"
+)
+
+FEATURE_COLUMNS_PATH = (
+    MODEL_DIRECTORY
+    / "feature_columns.joblib"
+)
+
+EXPERIMENT_HISTORY_PATH = (
+    TRACKING_DIRECTORY
+    / "experiment_history.csv"
+)
+
+MODEL_MANIFEST_PATH = (
+    TRACKING_DIRECTORY
+    / "model_manifest.json"
+)
+
+RETRAINING_DECISION_PATH = (
+    MONITORING_DIRECTORY
+    / "retraining_decision.json"
+)
+
+INFERENCE_OUTPUT_PATH = (
+    PREDICTIONS_DIRECTORY
+    / "inference_predictions.csv"
+)
+
+
 REGION = "VIC1"
 TARGET_COLUMN = "OPERATIONAL_DEMAND"
 TIMESTAMP_COLUMN = "INTERVAL_DATETIME"
@@ -102,6 +210,8 @@ WEATHER_LATITUDE = -37.8136
 WEATHER_LONGITUDE = 144.9631
 WEATHER_TIMEZONE = "Australia/Brisbane"
 
+FORECAST_HORIZON = "30 minutes ahead"
+
 TRAIN_RATIO = 0.70
 VALIDATION_RATIO = 0.15
 
@@ -111,17 +221,45 @@ TUNING_ITERATIONS = 25
 TUNING_SPLITS = 4
 RANDOM_STATE = 42
 
+MISSING_RATE_THRESHOLD = 0.01
+
+PSI_WARNING_THRESHOLD = 0.10
+PSI_FAILURE_THRESHOLD = 0.25
+PSI_BINS = 10
+
+MAE_THRESHOLD = 100.0
+
+MAXIMUM_MONITORING_DRIFT_FAILURES = 5
+
+MAXIMUM_RETRAINING_MAE = 100.0
+MAXIMUM_DRIFT_FAILURES = 5
+MAXIMUM_MISSING_FAILURES = 0
+
+
+MONITORED_FEATURE_CANDIDATES = [
+    "temperature",
+    "apparent_temperature",
+    "relative_humidity",
+    "humidity",
+    "wind_speed",
+    "cloud_cover",
+    "precipitation",
+    "rain",
+    "solar_radiation",
+]
 
 def make_output_directories() -> None:
     directories = [
-        OUTPUT_DIRECTORY / "metrics",
-        OUTPUT_DIRECTORY / "predictions",
-        OUTPUT_DIRECTORY / "tuning",
-        OUTPUT_DIRECTORY / "feature_importance",
+        METRICS_DIRECTORY,
+        PREDICTIONS_DIRECTORY,
+        TUNING_DIRECTORY,
+        FEATURE_IMPORTANCE_DIRECTORY,
         VERIFICATION_DIRECTORY,
         VERIFICATION_DETAILS_DIRECTORY,
         DIAGNOSTICS_DIRECTORY,
         PLOTS_DIRECTORY,
+        TRACKING_DIRECTORY,
+        MONITORING_DIRECTORY,
         MODEL_DIRECTORY,
     ]
 
@@ -132,9 +270,35 @@ def make_output_directories() -> None:
         )
 
 
-def prepare_demand_data() -> tuple[pd.DataFrame, dict]:
-    raw_df = load_historical_operational_demand(
-        ARCHIVE_DIRECTORY
+def save_json(
+    data: dict[str, Any],
+    output_path: Path,
+) -> None:
+    output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with output_path.open(
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            data,
+            file,
+            indent=4,
+            default=str,
+        )
+
+
+def prepare_demand_data() -> tuple[
+    pd.DataFrame,
+    dict,
+]:
+    raw_df = (
+        load_historical_operational_demand(
+            ARCHIVE_DIRECTORY
+        )
     )
 
     clean_df = clean_operational_demand(
@@ -143,7 +307,9 @@ def prepare_demand_data() -> tuple[pd.DataFrame, dict]:
     )
 
     notebook_validation_report = (
-        validate_operational_demand(clean_df)
+        validate_operational_demand(
+            clean_df
+        )
     )
 
     validate_demand_data(
@@ -156,14 +322,30 @@ def prepare_demand_data() -> tuple[pd.DataFrame, dict]:
         ),
     )
 
-    model_df = prepare_model_data(clean_df)
+    model_df = prepare_model_data(
+        clean_df
+    )
 
-    feature_df = add_calendar_features(model_df)
-    feature_df = add_lag_features(feature_df)
-    feature_df = add_rolling_features(feature_df)
-    feature_df = add_cyclical_features(feature_df)
+    feature_df = add_calendar_features(
+        model_df
+    )
 
-    return feature_df, notebook_validation_report
+    feature_df = add_lag_features(
+        feature_df
+    )
+
+    feature_df = add_rolling_features(
+        feature_df
+    )
+
+    feature_df = add_cyclical_features(
+        feature_df
+    )
+
+    return (
+        feature_df,
+        notebook_validation_report,
+    )
 
 
 def prepare_weather_data() -> pd.DataFrame:
@@ -175,7 +357,9 @@ def prepare_weather_data() -> pd.DataFrame:
         timezone=WEATHER_TIMEZONE,
     )
 
-    clean_df = clean_weather_data(raw_df)
+    clean_df = clean_weather_data(
+        raw_df
+    )
 
     feature_df = build_weather_features(
         clean_df,
@@ -197,10 +381,14 @@ def prepare_weather_data() -> pd.DataFrame:
     return feature_df
 
 
-def build_training_dataset() -> tuple[pd.DataFrame, dict]:
-    demand_df, notebook_validation_report = (
-        prepare_demand_data()
-    )
+def build_training_dataset() -> tuple[
+    pd.DataFrame,
+    dict,
+]:
+    (
+        demand_df,
+        notebook_validation_report,
+    ) = prepare_demand_data()
 
     weather_df = prepare_weather_data()
 
@@ -240,18 +428,23 @@ def build_training_dataset() -> tuple[pd.DataFrame, dict]:
         ),
     )
 
-    return training_df, notebook_validation_report
+    return (
+        training_df,
+        notebook_validation_report,
+    )
 
 
 def split_model_data(
     training_df: pd.DataFrame,
-) -> dict:
-    train_df, validation_df, test_df = (
-        split_time_series_data(
-            training_df,
-            train_ratio=TRAIN_RATIO,
-            validation_ratio=VALIDATION_RATIO,
-        )
+) -> dict[str, Any]:
+    (
+        train_df,
+        validation_df,
+        test_df,
+    ) = split_time_series_data(
+        training_df,
+        train_ratio=TRAIN_RATIO,
+        validation_ratio=VALIDATION_RATIO,
     )
 
     feature_columns = [
@@ -307,8 +500,8 @@ def split_model_data(
 def metric_row(
     model_name: str,
     y_true: pd.Series,
-    predictions,
-) -> dict:
+    predictions: Any,
+) -> dict[str, Any]:
     return {
         "model": model_name,
         **calculate_regression_metrics(
@@ -319,16 +512,25 @@ def metric_row(
 
 
 def train_validation_candidates(
-    data: dict,
-) -> tuple[pd.DataFrame, dict, pd.DataFrame]:
+    data: dict[str, Any],
+) -> tuple[
+    pd.DataFrame,
+    dict[str, Any],
+    pd.DataFrame,
+]:
     X_train = data["X_train"]
     y_train = data["y_train"]
 
-    X_validation = data["X_validation"]
-    y_validation = data["y_validation"]
+    X_validation = data[
+        "X_validation"
+    ]
 
-    rows: list[dict] = []
-    artifacts: dict = {}
+    y_validation = data[
+        "y_validation"
+    ]
+
+    rows: list[dict[str, Any]] = []
+    artifacts: dict[str, Any] = {}
 
     baseline_predictions = (
         generate_baseline_predictions(
@@ -359,36 +561,42 @@ def train_validation_candidates(
         data["X_test"],
     )
 
-    linear_model, linear_predictions = (
-        train_linear_regression(
-            X_train=X_train_scaled,
-            y_train=y_train,
-            X_validation=X_validation_scaled,
-        )
+    (
+        linear_model,
+        linear_predictions,
+    ) = train_linear_regression(
+        X_train=X_train_scaled,
+        y_train=y_train,
+        X_validation=(
+            X_validation_scaled
+        ),
     )
 
-    ridge_model, ridge_predictions = (
-        train_ridge_regression(
-            X_train=X_train_scaled,
-            y_train=y_train,
-            X_validation=X_validation_scaled,
-            alpha=1.0,
+    (
+        ridge_model,
+        ridge_predictions,
+    ) = train_ridge_regression(
+        X_train=X_train_scaled,
+        y_train=y_train,
+        X_validation=(
+            X_validation_scaled
+        ),
+        alpha=1.0,
+    )
+
+    rows.append(
+        metric_row(
+            "linear_regression",
+            y_validation,
+            linear_predictions,
         )
     )
 
     rows.append(
         metric_row(
-            model_name="linear_regression",
-            y_true=y_validation,
-            predictions=linear_predictions,
-        )
-    )
-
-    rows.append(
-        metric_row(
-            model_name="ridge_regression",
-            y_true=y_validation,
-            predictions=ridge_predictions,
+            "ridge_regression",
+            y_validation,
+            ridge_predictions,
         )
     )
 
@@ -409,14 +617,17 @@ def train_validation_candidates(
 
     rows.append(
         metric_row(
-            model_name="random_forest",
-            y_true=y_validation,
-            predictions=random_forest_predictions,
+            "random_forest",
+            y_validation,
+            random_forest_predictions,
         )
     )
 
-    default_xgboost_model = XGBRegressor(
-        random_state=RANDOM_STATE,
+    default_xgboost_model = (
+        XGBRegressor(
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        )
     )
 
     default_xgboost_model.fit(
@@ -432,11 +643,9 @@ def train_validation_candidates(
 
     rows.append(
         metric_row(
-            model_name="default_xgboost",
-            y_true=y_validation,
-            predictions=(
-                default_xgboost_predictions
-            ),
+            "default_xgboost",
+            y_validation,
+            default_xgboost_predictions,
         )
     )
 
@@ -463,11 +672,9 @@ def train_validation_candidates(
 
     rows.append(
         metric_row(
-            model_name="tuned_xgboost",
-            y_true=y_validation,
-            predictions=(
-                tuned_xgboost_predictions
-            ),
+            "tuned_xgboost",
+            y_validation,
+            tuned_xgboost_predictions,
         )
     )
 
@@ -477,25 +684,31 @@ def train_validation_candidates(
         .reset_index(drop=True)
     )
 
-    validation_predictions_df = pd.DataFrame(
-        {
-            TIMESTAMP_COLUMN: (
-                data["validation_df"][
-                    TIMESTAMP_COLUMN
-                ].reset_index(drop=True)
-            ),
-            "actual": (
-                y_validation.reset_index(
-                    drop=True
-                )
-            ),
-            "default_xgboost": (
-                default_xgboost_predictions
-            ),
-            "tuned_xgboost": (
-                tuned_xgboost_predictions
-            ),
-        }
+    validation_predictions_df = (
+        pd.DataFrame(
+            {
+                TIMESTAMP_COLUMN: (
+                    data[
+                        "validation_df"
+                    ][
+                        TIMESTAMP_COLUMN
+                    ].reset_index(
+                        drop=True
+                    )
+                ),
+                "actual": (
+                    y_validation.reset_index(
+                        drop=True
+                    )
+                ),
+                "default_xgboost": (
+                    default_xgboost_predictions
+                ),
+                "tuned_xgboost": (
+                    tuned_xgboost_predictions
+                ),
+            }
+        )
     )
 
     artifacts.update(
@@ -524,13 +737,20 @@ def train_validation_candidates(
         }
     )
 
-    return comparison_df, artifacts, cv_results
+    return (
+        comparison_df,
+        artifacts,
+        cv_results,
+    )
 
 
 def select_xgboost_model(
     comparison_df: pd.DataFrame,
-    best_parameters: dict,
-) -> tuple[str, dict | None]:
+    best_parameters: dict[str, Any],
+) -> tuple[
+    str,
+    dict[str, Any] | None,
+]:
     xgboost_comparison = (
         comparison_df[
             comparison_df["model"].isin(
@@ -543,6 +763,12 @@ def select_xgboost_model(
         .sort_values("MAE")
         .reset_index(drop=True)
     )
+
+    if xgboost_comparison.empty:
+        raise ValueError(
+            "No XGBoost candidates were found "
+            "in the model comparison."
+        )
 
     selected_model = str(
         xgboost_comparison.loc[
@@ -564,14 +790,66 @@ def select_xgboost_model(
     )
 
 
-def retrain_and_test(
-    data: dict,
+def get_selected_validation_metrics(
+    comparison_df: pd.DataFrame,
     selected_model: str,
-    selected_parameters: dict | None,
+) -> dict[str, float]:
+    selected_rows = comparison_df[
+        comparison_df["model"]
+        == selected_model
+    ]
+
+    if selected_rows.empty:
+        raise ValueError(
+            "Selected model was not found "
+            "in validation results."
+        )
+
+    metric_columns = [
+        column
+        for column in [
+            "MAE",
+            "RMSE",
+            "MAPE",
+            "R2",
+        ]
+        if column in selected_rows.columns
+    ]
+
+    selected_row = (
+        selected_rows.iloc[0]
+    )
+
+    return {
+        column: float(
+            selected_row[column]
+        )
+        for column in metric_columns
+    }
+
+
+def build_final_training_dataframe(
+    data: dict[str, Any],
+) -> pd.DataFrame:
+    return pd.concat(
+        [
+            data["train_df"],
+            data["validation_df"],
+        ],
+        ignore_index=True,
+    )
+
+
+def retrain_and_test(
+    data: dict[str, Any],
+    selected_model: str,
+    selected_parameters: (
+        dict[str, Any] | None
+    ),
 ) -> tuple[
     XGBRegressor,
     pd.DataFrame,
-    dict,
+    dict[str, float],
 ]:
     X_final_train = pd.concat(
         [
@@ -589,20 +867,20 @@ def retrain_and_test(
         ignore_index=True,
     )
 
-    if selected_model == "tuned_xgboost":
-        if selected_parameters is None:
-            raise ValueError(
-                "Tuned XGBoost was selected, but no "
-                "tuned parameters were provided."
-            )
-
+    if (
+        selected_model
+        == "tuned_xgboost"
+    ):
         final_model = XGBRegressor(
-            **selected_parameters,
-            random_state=RANDOM_STATE,
+            **(
+                selected_parameters
+                or {}
+            )
         )
     else:
         final_model = XGBRegressor(
             random_state=RANDOM_STATE,
+            n_jobs=-1,
         )
 
     final_model.fit(
@@ -621,25 +899,39 @@ def retrain_and_test(
         )
     )
 
-    test_predictions_df = pd.DataFrame(
-        {
-            TIMESTAMP_COLUMN: (
-                data["test_df"][
-                    TIMESTAMP_COLUMN
-                ].reset_index(drop=True)
-            ),
-            "actual": (
-                data["y_test"].reset_index(
-                    drop=True
-                )
-            ),
-            "predicted": predictions,
-        }
+    test_predictions_df = (
+        pd.DataFrame(
+            {
+                TIMESTAMP_COLUMN: (
+                    data["test_df"][
+                        TIMESTAMP_COLUMN
+                    ].reset_index(
+                        drop=True
+                    )
+                ),
+                "actual": (
+                    data[
+                        "y_test"
+                    ].reset_index(
+                        drop=True
+                    )
+                ),
+                "predicted": (
+                    predictions
+                ),
+            }
+        )
     )
 
-    test_predictions_df["residual"] = (
-        test_predictions_df["actual"]
-        - test_predictions_df["predicted"]
+    test_predictions_df[
+        "residual"
+    ] = (
+        test_predictions_df[
+            "actual"
+        ]
+        - test_predictions_df[
+            "predicted"
+        ]
     )
 
     return (
@@ -649,41 +941,23 @@ def retrain_and_test(
     )
 
 
-def save_outputs(
+def save_training_outputs(
     training_df: pd.DataFrame,
     notebook_validation_report: dict,
     comparison_df: pd.DataFrame,
-    artifacts: dict,
+    artifacts: dict[str, Any],
     cv_results: pd.DataFrame,
     selected_model: str,
-    selected_parameters: dict | None,
+    selected_parameters: (
+        dict[str, Any] | None
+    ),
     final_model: XGBRegressor,
     test_predictions_df: pd.DataFrame,
-    test_metrics: dict,
+    test_metrics: dict[str, float],
     feature_columns: list[str],
 ) -> None:
-    metrics_directory = (
-        OUTPUT_DIRECTORY
-        / "metrics"
-    )
-
-    predictions_directory = (
-        OUTPUT_DIRECTORY
-        / "predictions"
-    )
-
-    tuning_directory = (
-        OUTPUT_DIRECTORY
-        / "tuning"
-    )
-
-    feature_importance_directory = (
-        OUTPUT_DIRECTORY
-        / "feature_importance"
-    )
-
     comparison_df.to_csv(
-        metrics_directory
+        METRICS_DIRECTORY
         / "validation_model_comparison.csv",
         index=False,
     )
@@ -691,19 +965,19 @@ def save_outputs(
     artifacts[
         "validation_predictions"
     ].to_csv(
-        predictions_directory
+        PREDICTIONS_DIRECTORY
         / "xgboost_validation_predictions.csv",
         index=False,
     )
 
     cv_results.to_csv(
-        tuning_directory
+        TUNING_DIRECTORY
         / "xgboost_cv_results.csv",
         index=False,
     )
 
     test_predictions_df.to_csv(
-        predictions_directory
+        PREDICTIONS_DIRECTORY
         / "final_test_predictions.csv",
         index=False,
     )
@@ -720,56 +994,33 @@ def save_outputs(
         / "00_existing_demand_validation.json",
     )
 
-    with (
-        tuning_directory
-        / "best_xgboost_parameters.json"
-    ).open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            artifacts["best_parameters"],
-            file,
-            indent=4,
-        )
+    save_json(
+        artifacts["best_parameters"],
+        TUNING_DIRECTORY
+        / "best_xgboost_parameters.json",
+    )
 
-    with (
-        metrics_directory
-        / "model_selection.json"
-    ).open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            {
-                "selected_model": (
-                    selected_model
-                ),
-                "selected_parameters": (
-                    selected_parameters
-                ),
-                "best_cross_validation_MAE": (
-                    artifacts[
-                        "best_cv_mae"
-                    ]
-                ),
-            },
-            file,
-            indent=4,
-        )
+    save_json(
+        {
+            "selected_model": (
+                selected_model
+            ),
+            "selected_parameters": (
+                selected_parameters
+            ),
+            "best_cross_validation_MAE": (
+                artifacts["best_cv_mae"]
+            ),
+        },
+        METRICS_DIRECTORY
+        / "model_selection.json",
+    )
 
-    with (
-        metrics_directory
-        / "final_test_metrics.json"
-    ).open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            test_metrics,
-            file,
-            indent=4,
-        )
+    save_json(
+        test_metrics,
+        METRICS_DIRECTORY
+        / "final_test_metrics.json",
+    )
 
     final_importance = (
         get_xgboost_feature_importance(
@@ -779,7 +1030,7 @@ def save_outputs(
     )
 
     final_importance.to_csv(
-        feature_importance_directory
+        FEATURE_IMPORTANCE_DIRECTORY
         / "final_xgboost_feature_importance.csv",
         index=False,
     )
@@ -794,31 +1045,257 @@ def save_outputs(
     )
 
     random_forest_importance.to_csv(
-        feature_importance_directory
+        FEATURE_IMPORTANCE_DIRECTORY
         / "random_forest_feature_importance.csv",
         index=False,
     )
 
     final_model.save_model(
-        MODEL_DIRECTORY
-        / "final_xgboost_model.json"
+        MODEL_PATH
     )
 
     joblib.dump(
         feature_columns,
-        MODEL_DIRECTORY
-        / "feature_columns.joblib",
+        FEATURE_COLUMNS_PATH,
     )
 
 
+def run_saved_model_inference(
+    test_df: pd.DataFrame,
+) -> pd.DataFrame:
+    inference_predictions = (
+        generate_predictions(
+            dataframe=test_df,
+            model_path=MODEL_PATH,
+            feature_columns_path=(
+                FEATURE_COLUMNS_PATH
+            ),
+            timestamp_column=(
+                TIMESTAMP_COLUMN
+            ),
+            prediction_column=(
+                "predicted"
+            ),
+        )
+    )
+
+    save_predictions(
+        predictions=(
+            inference_predictions
+        ),
+        output_path=(
+            INFERENCE_OUTPUT_PATH
+        ),
+    )
+
+    return inference_predictions
+
+
+def run_model_tracking(
+    training_df: pd.DataFrame,
+    data: dict[str, Any],
+    comparison_df: pd.DataFrame,
+    selected_model: str,
+    selected_parameters: (
+        dict[str, Any] | None
+    ),
+    best_cv_mae: float,
+    test_metrics: dict[str, float],
+) -> dict[str, Any]:
+    validation_metrics = (
+        get_selected_validation_metrics(
+            comparison_df=(
+                comparison_df
+            ),
+            selected_model=(
+                selected_model
+            ),
+        )
+    )
+
+    experiment_record = (
+        track_experiment(
+            model_name=selected_model,
+            selected_model=(
+                selected_model
+            ),
+            validation_metrics=(
+                validation_metrics
+            ),
+            test_metrics=test_metrics,
+            best_cv_mae=best_cv_mae,
+            feature_count=len(
+                data["feature_columns"]
+            ),
+            training_rows=len(
+                data["train_df"]
+            ),
+            validation_rows=len(
+                data["validation_df"]
+            ),
+            test_rows=len(
+                data["test_df"]
+            ),
+            output_path=(
+                EXPERIMENT_HISTORY_PATH
+            ),
+            parameters=(
+                selected_parameters
+            ),
+        )
+    )
+
+    final_training_df = (
+        build_final_training_dataframe(
+            data
+        )
+    )
+
+    manifest = create_model_manifest(
+        model_name=selected_model,
+        model_path=MODEL_PATH,
+        feature_columns_path=(
+            FEATURE_COLUMNS_PATH
+        ),
+        feature_columns=(
+            data["feature_columns"]
+        ),
+        target_column=TARGET_COLUMN,
+        timestamp_column=(
+            TIMESTAMP_COLUMN
+        ),
+        forecast_horizon=(
+            FORECAST_HORIZON
+        ),
+        training_dataframe=(
+            final_training_df
+        ),
+        validation_metrics=(
+            validation_metrics
+        ),
+        test_metrics=test_metrics,
+        model_parameters=(
+            selected_parameters
+            or {}
+        ),
+        output_path=(
+            MODEL_MANIFEST_PATH
+        ),
+    )
+
+    return {
+        "experiment_record": (
+            experiment_record
+        ),
+        "manifest": manifest,
+        "source_dataset_rows": int(
+            len(training_df)
+        ),
+    }
+
+def get_monitored_features(
+    dataframe: pd.DataFrame,
+) -> list[str]:
+    monitored_features = [
+        feature
+        for feature in MONITORED_FEATURE_CANDIDATES
+        if feature in dataframe.columns
+    ]
+
+    if not monitored_features:
+        raise ValueError(
+            "No configured monitoring features were found "
+            "in the current dataframe."
+        )
+
+    return monitored_features
+
+
+
+def run_model_monitoring(
+    data: dict[str, Any],
+    inference_predictions: pd.DataFrame,
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+]:
+    reference_dataframe = build_final_training_dataframe(
+        data
+    )
+
+    current_dataframe = data["test_df"]
+
+    monitored_features = get_monitored_features(
+        current_dataframe
+    )
+
+    prediction_monitoring_df = pd.DataFrame(
+        {
+            "actual": (
+                data["y_test"]
+                .reset_index(drop=True)
+            ),
+            "prediction": (
+                inference_predictions["predicted"]
+                .reset_index(drop=True)
+            ),
+        }
+    )
+
+    monitoring_result = run_monitoring(
+        reference_dataframe=reference_dataframe,
+        current_dataframe=current_dataframe,
+        feature_columns=monitored_features,
+        output_directory=MONITORING_DIRECTORY,
+        prediction_dataframe=prediction_monitoring_df,
+        actual_column="actual",
+        prediction_column="prediction",
+        missing_rate_threshold=MISSING_RATE_THRESHOLD,
+        psi_warning_threshold=PSI_WARNING_THRESHOLD,
+        psi_failure_threshold=PSI_FAILURE_THRESHOLD,
+        psi_bins=PSI_BINS,
+        mae_threshold=MAE_THRESHOLD,
+        maximum_drift_failures=(
+            MAXIMUM_MONITORING_DRIFT_FAILURES
+        ),
+    )
+
+    monitoring_result["monitored_features"] = (
+        monitored_features
+    )
+
+    retraining_decision = (
+        evaluate_and_save_retraining_decision(
+            monitoring_summary=monitoring_result,
+            output_path=RETRAINING_DECISION_PATH,
+            maximum_mae=MAXIMUM_RETRAINING_MAE,
+            maximum_drift_failures=(
+                MAXIMUM_DRIFT_FAILURES
+            ),
+            maximum_missing_failures=(
+                MAXIMUM_MISSING_FAILURES
+            ),
+        )
+    )
+
+    return (
+        monitoring_result,
+        retraining_decision,
+    )
+
 def save_pipeline_summary(
     training_df: pd.DataFrame,
-    data: dict,
+    data: dict[str, Any],
     comparison_df: pd.DataFrame,
     selected_model: str,
     best_cv_mae: float,
-    test_metrics: dict,
-    visualisation: dict,
+    test_metrics: dict[str, float],
+    diagnostics_summary: dict[str, Any],
+    time_based_error_summary: dict[str, Any],
+    visualisation_summary: dict[str, Any],
+    tracking_summary: dict[str, Any],
+    monitoring_summary: dict[str, Any],
+    retraining_decision: dict[str, Any],
 ) -> None:
     report = {
         "status": "PASS",
@@ -833,13 +1310,19 @@ def save_pipeline_summary(
                 len(data["train_df"])
             ),
             "validation": int(
-                len(data["validation_df"])
+                len(
+                    data[
+                        "validation_df"
+                    ]
+                )
             ),
             "test": int(
                 len(data["test_df"])
             ),
         },
-        "selected_model": selected_model,
+        "selected_model": (
+            selected_model
+        ),
         "best_tuning_cv_mae": float(
             best_cv_mae
         ),
@@ -851,21 +1334,44 @@ def save_pipeline_summary(
         "final_test_metrics": (
             test_metrics
         ),
-        "output_directories": {
-            "verification": str(
-                VERIFICATION_DIRECTORY
+        "model_artifacts": {
+            "model": str(
+                MODEL_PATH
             ),
-            "diagnostics": str(
-                DIAGNOSTICS_DIRECTORY
+            "feature_columns": str(
+                FEATURE_COLUMNS_PATH
             ),
-            "plots": str(
-                PLOTS_DIRECTORY
+            "manifest": str(
+                MODEL_MANIFEST_PATH
             ),
-            "models": str(
-                MODEL_DIRECTORY
+            "experiment_history": str(
+                EXPERIMENT_HISTORY_PATH
             ),
         },
-        "visualisation": visualisation,
+        "inference_output": str(
+            INFERENCE_OUTPUT_PATH
+        ),
+        "diagnostics": (
+            diagnostics_summary
+        ),
+        "time_based_error_analysis": (
+            time_based_error_summary
+        ),
+        "visualisation": (
+            visualisation_summary
+        ),
+        "tracking": (
+            tracking_summary
+        ),
+        "monitoring": (
+            monitoring_summary
+        ),
+        "retraining_decision": (
+            retraining_decision
+        ),
+        "verification_directory": str(
+            VERIFICATION_DIRECTORY
+        ),
     }
 
     save_json_report(
@@ -880,7 +1386,7 @@ def main() -> None:
 
     try:
         print(
-            "[1/10] Preparing and validating data..."
+            "[1/13] Preparing and validating data..."
         )
 
         (
@@ -889,7 +1395,7 @@ def main() -> None:
         ) = build_training_dataset()
 
         print(
-            "[2/10] Creating and validating splits..."
+            "[2/13] Creating chronological splits..."
         )
 
         data = split_model_data(
@@ -897,7 +1403,7 @@ def main() -> None:
         )
 
         print(
-            "[3/10] Training validation candidates..."
+            "[3/13] Training model candidates..."
         )
 
         (
@@ -909,23 +1415,21 @@ def main() -> None:
         )
 
         print(
-            "[4/10] Selecting XGBoost model..."
+            "[4/13] Selecting champion model..."
         )
 
         (
             selected_model,
             selected_parameters,
         ) = select_xgboost_model(
-            comparison_df=comparison_df,
-            best_parameters=(
-                artifacts[
-                    "best_parameters"
-                ]
-            ),
+            comparison_df,
+            artifacts[
+                "best_parameters"
+            ],
         )
 
         print(
-            "[5/10] Retraining selected model..."
+            "[5/13] Retraining and testing champion..."
         )
 
         (
@@ -933,15 +1437,13 @@ def main() -> None:
             test_predictions_df,
             test_metrics,
         ) = retrain_and_test(
-            data=data,
-            selected_model=selected_model,
-            selected_parameters=(
-                selected_parameters
-            ),
+            data,
+            selected_model,
+            selected_parameters,
         )
 
         print(
-            "[6/10] Verifying model outputs..."
+            "[6/13] Verifying model outputs..."
         )
 
         validate_model_outputs(
@@ -952,7 +1454,9 @@ def main() -> None:
                 test_predictions_df
             ),
             test_metrics=test_metrics,
-            selected_model=selected_model,
+            selected_model=(
+                selected_model
+            ),
             output_path=(
                 VERIFICATION_DIRECTORY
                 / "06_model_output_validation.json"
@@ -960,10 +1464,10 @@ def main() -> None:
         )
 
         print(
-            "[7/10] Saving model outputs..."
+            "[7/13] Saving models and outputs..."
         )
 
-        save_outputs(
+        save_training_outputs(
             training_df=training_df,
             notebook_validation_report=(
                 notebook_validation_report
@@ -971,7 +1475,9 @@ def main() -> None:
             comparison_df=comparison_df,
             artifacts=artifacts,
             cv_results=cv_results,
-            selected_model=selected_model,
+            selected_model=(
+                selected_model
+            ),
             selected_parameters=(
                 selected_parameters
             ),
@@ -986,54 +1492,72 @@ def main() -> None:
         )
 
         print(
-            "[8/10] Generating model diagnostics..."
+            "[8/13] Running saved-model inference..."
         )
 
-        generate_model_diagnostics(
-            timestamps=(
-                test_predictions_df[
-                    TIMESTAMP_COLUMN
-                ]
-            ),
-            actual_values=(
-                test_predictions_df[
-                    "actual"
-                ]
-            ),
-            predicted_values=(
-                test_predictions_df[
-                    "predicted"
-                ]
-            ),
-            output_directory=(
-                DIAGNOSTICS_DIRECTORY
-            ),
-            worst_prediction_count=50,
-        )
-
-        generate_time_based_error_analysis(
-            timestamps=(
-                test_predictions_df[
-                    TIMESTAMP_COLUMN
-                ]
-            ),
-            actual_values=(
-                test_predictions_df[
-                    "actual"
-                ]
-            ),
-            predicted_values=(
-                test_predictions_df[
-                    "predicted"
-                ]
-            ),
-            output_directory=(
-                DIAGNOSTICS_DIRECTORY
-            ),
+        inference_predictions = (
+            run_saved_model_inference(
+                data["test_df"]
+            )
         )
 
         print(
-            "[9/10] Generating model visualisations..."
+            "[9/13] Generating diagnostics..."
+        )
+
+        diagnostics_summary = (
+            generate_model_diagnostics(
+                timestamps=(
+                    test_predictions_df[
+                        TIMESTAMP_COLUMN
+                    ]
+                ),
+                actual_values=(
+                    test_predictions_df[
+                        "actual"
+                    ]
+                ),
+                predicted_values=(
+                    test_predictions_df[
+                        "predicted"
+                    ]
+                ),
+                output_directory=(
+                    DIAGNOSTICS_DIRECTORY
+                ),
+                worst_prediction_count=50,
+            )
+        )
+
+        print(
+            "[10/13] Analysing time-based errors..."
+        )
+
+        time_based_error_summary = (
+            generate_time_based_error_analysis(
+                timestamps=(
+                    test_predictions_df[
+                        TIMESTAMP_COLUMN
+                    ]
+                ),
+                actual_values=(
+                    test_predictions_df[
+                        "actual"
+                    ]
+                ),
+                predicted_values=(
+                    test_predictions_df[
+                        "predicted"
+                    ]
+                ),
+                output_directory=(
+                    DIAGNOSTICS_DIRECTORY
+                ),
+            )
+        )
+
+        print(
+            "[11/13] Generating visualisations..."
         )
 
         visualisation_summary = (
@@ -1048,20 +1572,79 @@ def main() -> None:
         )
 
         print(
-            "[10/10] Saving pipeline summary..."
+            "[12/13] Tracking and monitoring model..."
+        )
+
+        tracking_summary = (
+            run_model_tracking(
+                training_df=training_df,
+                data=data,
+                comparison_df=(
+                    comparison_df
+                ),
+                selected_model=(
+                    selected_model
+                ),
+                selected_parameters=(
+                    selected_parameters
+                ),
+                best_cv_mae=(
+                    artifacts[
+                        "best_cv_mae"
+                    ]
+                ),
+                test_metrics=(
+                    test_metrics
+                ),
+            )
+        )
+
+        (
+            monitoring_summary,
+            retraining_decision,
+        ) = run_model_monitoring(
+            data=data,
+            inference_predictions=(
+                inference_predictions
+            ),
+        )
+
+        print(
+            "[13/13] Saving pipeline summary..."
         )
 
         save_pipeline_summary(
             training_df=training_df,
             data=data,
-            comparison_df=comparison_df,
-            selected_model=selected_model,
+            comparison_df=(
+                comparison_df
+            ),
+            selected_model=(
+                selected_model
+            ),
             best_cv_mae=(
-                artifacts["best_cv_mae"]
+                artifacts[
+                    "best_cv_mae"
+                ]
             ),
             test_metrics=test_metrics,
-            visualisation=(
+            diagnostics_summary=(
+                diagnostics_summary
+            ),
+            time_based_error_summary=(
+                time_based_error_summary
+            ),
+            visualisation_summary=(
                 visualisation_summary
+            ),
+            tracking_summary=(
+                tracking_summary
+            ),
+            monitoring_summary=(
+                monitoring_summary
+            ),
+            retraining_decision=(
+                retraining_decision
             ),
         )
 
@@ -1070,23 +1653,27 @@ def main() -> None:
         )
 
         print(
-            "Verification reports: "
-            f"{VERIFICATION_DIRECTORY}"
+            f"Selected model: "
+            f"{selected_model}"
         )
 
         print(
-            "Diagnostics: "
-            f"{DIAGNOSTICS_DIRECTORY}"
+            f"Test MAE: "
+            f"{test_metrics['MAE']:.3f} MW"
         )
 
         print(
-            "Plots: "
-            f"{PLOTS_DIRECTORY}"
+            f"Monitoring status: "
+            f"{monitoring_summary['status']}"
         )
 
         print(
-            "Models: "
-            f"{MODEL_DIRECTORY}"
+            f"Retraining decision: "
+            f"{retraining_decision['decision']}"
+        )
+
+        print(
+            f"Outputs: {OUTPUT_DIRECTORY}"
         )
 
     except PipelineValidationError as error:
@@ -1095,7 +1682,21 @@ def main() -> None:
             "verification check failed."
         )
 
-        print(str(error))
+        print(
+            str(error)
+        )
+
+        raise
+
+    except Exception as error:
+        print(
+            "\nPipeline failed."
+        )
+
+        print(
+            f"{type(error).__name__}: "
+            f"{error}"
+        )
 
         raise
 
