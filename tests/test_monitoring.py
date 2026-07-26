@@ -16,6 +16,12 @@ from src.monitoring.should_retrain import (
 )
 
 
+FEATURE_COLUMNS = [
+    "temperature",
+    "demand_lag_1",
+]
+
+
 @pytest.fixture
 def reference_dataframe() -> pd.DataFrame:
     return pd.DataFrame(
@@ -87,6 +93,7 @@ def test_missing_value_report_passes_when_no_missing_values(
 ) -> None:
     report = calculate_missing_value_report(
         dataframe=stable_current_dataframe,
+        feature_columns=FEATURE_COLUMNS,
         missing_rate_threshold=0.01,
     )
 
@@ -115,6 +122,10 @@ def test_missing_value_report_detects_failure() -> None:
 
     report = calculate_missing_value_report(
         dataframe=dataframe,
+        feature_columns=[
+            "feature_a",
+            "feature_b",
+        ],
         missing_rate_threshold=0.25,
     )
 
@@ -139,16 +150,15 @@ def test_feature_drift_passes_for_stable_data(
     report = calculate_feature_drift(
         reference_dataframe=reference_dataframe,
         current_dataframe=stable_current_dataframe,
-        feature_columns=[
-            "temperature",
-            "demand_lag_1",
-        ],
-        mean_drift_threshold=0.20,
-        std_drift_threshold=0.20,
+        feature_columns=FEATURE_COLUMNS,
+        psi_warning_threshold=0.10,
+        psi_failure_threshold=0.25,
+        psi_bins=5,
     )
 
     assert len(report) == 2
     assert set(report["status"]) == {"PASS"}
+    assert (report["psi"] < 0.10).all()
 
 
 def test_feature_drift_detects_shifted_data(
@@ -158,22 +168,15 @@ def test_feature_drift_detects_shifted_data(
     report = calculate_feature_drift(
         reference_dataframe=reference_dataframe,
         current_dataframe=drifted_current_dataframe,
-        feature_columns=[
-            "temperature",
-            "demand_lag_1",
-        ],
-        mean_drift_threshold=0.20,
-        std_drift_threshold=0.20,
+        feature_columns=FEATURE_COLUMNS,
+        psi_warning_threshold=0.10,
+        psi_failure_threshold=0.25,
+        psi_bins=5,
     )
 
-    assert (
-        report["status"] == "FAIL"
-    ).all()
-
-    assert (
-        report["mean_relative_change"]
-        > 0.20
-    ).all()
+    assert len(report) == 2
+    assert (report["status"] == "FAIL").all()
+    assert (report["psi"] >= 0.25).all()
 
 
 def test_prediction_monitoring_metrics_are_correct() -> None:
@@ -193,28 +196,21 @@ def test_prediction_monitoring_metrics_are_correct() -> None:
     )
 
     metrics = calculate_prediction_monitoring_metrics(
-        dataframe=dataframe,
+        prediction_dataframe=dataframe,
         actual_column="actual",
         prediction_column="prediction",
+        mae_threshold=100.0,
     )
 
     assert metrics["row_count"] == 3
-    assert metrics["mae"] == pytest.approx(
-        10.0
+    assert metrics["mae"] == pytest.approx(10.0)
+    assert metrics["rmse"] == pytest.approx(10.0)
+    assert metrics["mape"] == pytest.approx(
+        6.111111,
+        rel=1e-5,
     )
-    assert metrics["rmse"] == pytest.approx(
-        10.0
-    )
-    assert metrics[
-        "mean_residual"
-    ] == pytest.approx(
-        10.0 / 3.0
-    )
-    assert metrics[
-        "maximum_absolute_error"
-    ] == pytest.approx(
-        10.0
-    )
+    assert metrics["status"] == "PASS"
+    assert metrics["mae_threshold"] == 100.0
 
 
 def test_monitoring_status_passes_when_all_checks_pass(
@@ -223,44 +219,42 @@ def test_monitoring_status_passes_when_all_checks_pass(
 ) -> None:
     missing_report = calculate_missing_value_report(
         dataframe=stable_current_dataframe,
+        feature_columns=FEATURE_COLUMNS,
         missing_rate_threshold=0.01,
     )
 
     drift_report = calculate_feature_drift(
         reference_dataframe=reference_dataframe,
         current_dataframe=stable_current_dataframe,
-        feature_columns=[
-            "temperature",
-            "demand_lag_1",
-        ],
-        mean_drift_threshold=0.20,
-        std_drift_threshold=0.20,
+        feature_columns=FEATURE_COLUMNS,
+        psi_warning_threshold=0.10,
+        psi_failure_threshold=0.25,
+        psi_bins=5,
     )
 
     prediction_metrics = {
+        "row_count": 10,
         "mae": 60.0,
+        "rmse": 75.0,
+        "mape": 2.5,
+        "mae_threshold": 100.0,
+        "status": "PASS",
+        "reason": "",
     }
 
     summary = evaluate_monitoring_status(
-        missing_report=missing_report,
-        drift_report=drift_report,
+        missing_value_report=missing_report,
+        feature_drift_report=drift_report,
         prediction_metrics=prediction_metrics,
-        mae_threshold=100.0,
+        maximum_drift_failures=5,
     )
 
     assert summary["status"] == "PASS"
-    assert (
-        summary["missing_value_status"]
-        == "PASS"
-    )
-    assert (
-        summary["feature_drift_status"]
-        == "PASS"
-    )
-    assert (
-        summary["performance_status"]
-        == "PASS"
-    )
+    assert summary["missing_value_status"] == "PASS"
+    assert summary["feature_drift_status"] == "PASS"
+    assert summary["performance_status"] == "PASS"
+    assert summary["missing_failure_count"] == 0
+    assert summary["drift_failure_count"] == 0
 
 
 def test_monitoring_status_fails_when_mae_is_high(
@@ -269,36 +263,39 @@ def test_monitoring_status_fails_when_mae_is_high(
 ) -> None:
     missing_report = calculate_missing_value_report(
         dataframe=stable_current_dataframe,
+        feature_columns=FEATURE_COLUMNS,
         missing_rate_threshold=0.01,
     )
 
     drift_report = calculate_feature_drift(
         reference_dataframe=reference_dataframe,
         current_dataframe=stable_current_dataframe,
-        feature_columns=[
-            "temperature",
-            "demand_lag_1",
-        ],
-        mean_drift_threshold=0.20,
-        std_drift_threshold=0.20,
+        feature_columns=FEATURE_COLUMNS,
+        psi_warning_threshold=0.10,
+        psi_failure_threshold=0.25,
+        psi_bins=5,
     )
 
     prediction_metrics = {
+        "row_count": 10,
         "mae": 150.0,
+        "rmse": 170.0,
+        "mape": 6.0,
+        "mae_threshold": 100.0,
+        "status": "FAIL",
+        "reason": "MAE exceeded threshold.",
     }
 
     summary = evaluate_monitoring_status(
-        missing_report=missing_report,
-        drift_report=drift_report,
+        missing_value_report=missing_report,
+        feature_drift_report=drift_report,
         prediction_metrics=prediction_metrics,
-        mae_threshold=100.0,
+        maximum_drift_failures=5,
     )
 
     assert summary["status"] == "FAIL"
-    assert (
-        summary["performance_status"]
-        == "FAIL"
-    )
+    assert summary["performance_status"] == "FAIL"
+    assert summary["current_mae"] == 150.0
 
 
 def test_retraining_not_required_for_healthy_model() -> None:
@@ -316,14 +313,8 @@ def test_retraining_not_required_for_healthy_model() -> None:
         maximum_missing_failures=0,
     )
 
-    assert (
-        decision["retraining_required"]
-        is False
-    )
-    assert (
-        decision["decision"]
-        == "KEEP_CURRENT_MODEL"
-    )
+    assert decision["retraining_required"] is False
+    assert decision["decision"] == "KEEP_CURRENT_MODEL"
 
 
 def test_retraining_required_when_mae_exceeds_threshold() -> None:
@@ -341,14 +332,8 @@ def test_retraining_required_when_mae_exceeds_threshold() -> None:
         maximum_missing_failures=0,
     )
 
-    assert (
-        decision["retraining_required"]
-        is True
-    )
-    assert (
-        decision["decision"]
-        == "RETRAIN"
-    )
+    assert decision["retraining_required"] is True
+    assert decision["decision"] == "RETRAIN"
 
 
 def test_retraining_required_when_drift_failures_exceed_limit() -> None:
@@ -366,29 +351,30 @@ def test_retraining_required_when_drift_failures_exceed_limit() -> None:
         maximum_missing_failures=0,
     )
 
-    assert (
-        decision["retraining_required"]
-        is True
-    )
+    assert decision["retraining_required"] is True
+    assert decision["decision"] == "RETRAIN"
 
 
-def test_feature_drift_raises_for_missing_feature(
+def test_feature_drift_reports_missing_feature(
     reference_dataframe: pd.DataFrame,
     stable_current_dataframe: pd.DataFrame,
 ) -> None:
-    with pytest.raises(
-        ValueError,
-        match="missing required columns",
-    ):
-        calculate_feature_drift(
-            reference_dataframe=(
-                reference_dataframe
-            ),
-            current_dataframe=(
-                stable_current_dataframe
-            ),
-            feature_columns=[
-                "temperature",
-                "missing_feature",
-            ],
-        )
+    report = calculate_feature_drift(
+        reference_dataframe=reference_dataframe,
+        current_dataframe=stable_current_dataframe,
+        feature_columns=[
+            "temperature",
+            "missing_feature",
+        ],
+    )
+
+    missing_feature_report = report.loc[
+        report["feature"] == "missing_feature"
+    ].iloc[0]
+
+    assert missing_feature_report["status"] == "FAIL"
+    assert missing_feature_report["psi"] == float("inf")
+    assert (
+        missing_feature_report["reason"]
+        == "Feature is missing from the reference dataframe."
+    )
