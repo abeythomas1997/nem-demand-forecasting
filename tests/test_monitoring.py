@@ -45,7 +45,9 @@ def reference_dataframe() -> pd.DataFrame:
 
 
 @pytest.fixture
-def stable_current_dataframe() -> pd.DataFrame:
+def stable_current_dataframe(
+    reference_dataframe: pd.DataFrame,
+) -> pd.DataFrame:
     return reference_dataframe.copy()
 
 
