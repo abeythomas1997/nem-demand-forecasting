@@ -46,24 +46,7 @@ def reference_dataframe() -> pd.DataFrame:
 
 @pytest.fixture
 def stable_current_dataframe() -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "temperature": [
-                18.5,
-                20.5,
-                22.5,
-                24.5,
-                26.5,
-            ],
-            "demand_lag_1": [
-                4520.0,
-                4620.0,
-                4720.0,
-                4820.0,
-                4920.0,
-            ],
-        }
-    )
+    return reference_dataframe.copy()
 
 
 @pytest.fixture
